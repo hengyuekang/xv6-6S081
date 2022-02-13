@@ -43,6 +43,7 @@ void wait_prime()
             redirect(1, pid);
             filter(prime);
             wait(0); // keep the pipeline complete to let process exit after wait_prime()
+            //generate process and print prime one by one,wait for exiting orderly(look like a single process from shell)
         }
     }
 }

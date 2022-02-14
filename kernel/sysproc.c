@@ -6,15 +6,19 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "sysinfo.h"
+
+extern uint64 getfreemem();
+extern uint64 getnproc();
 
 uint64
 sys_exit(void)
 {
   int n;
-  if(argint(0, &n) < 0)
+  if (argint(0, &n) < 0)
     return -1;
   exit(n);
-  return 0;  // not reached
+  return 0; // not reached
 }
 
 uint64
@@ -33,7 +37,7 @@ uint64
 sys_wait(void)
 {
   uint64 p;
-  if(argaddr(0, &p) < 0)
+  if (argaddr(0, &p) < 0)
     return -1;
   return wait(p);
 }
@@ -44,10 +48,10 @@ sys_sbrk(void)
   int addr;
   int n;
 
-  if(argint(0, &n) < 0)
+  if (argint(0, &n) < 0)
     return -1;
   addr = myproc()->sz;
-  if(growproc(n) < 0)
+  if (growproc(n) < 0)
     return -1;
   return addr;
 }
@@ -58,12 +62,14 @@ sys_sleep(void)
   int n;
   uint ticks0;
 
-  if(argint(0, &n) < 0)
+  if (argint(0, &n) < 0)
     return -1;
   acquire(&tickslock);
   ticks0 = ticks;
-  while(ticks - ticks0 < n){
-    if(myproc()->killed){
+  while (ticks - ticks0 < n)
+  {
+    if (myproc()->killed)
+    {
       release(&tickslock);
       return -1;
     }
@@ -78,7 +84,7 @@ sys_kill(void)
 {
   int pid;
 
-  if(argint(0, &pid) < 0)
+  if (argint(0, &pid) < 0)
     return -1;
   return kill(pid);
 }
@@ -94,4 +100,32 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64
+sys_trace(void)
+{
+  int m;
+  if (argint(0, &m) < 0)
+    return -1;
+  if (m < 2 || m > 2147483647)
+    return -1;
+  myproc()->tracemask = m;
+  return 0;
+}
+
+uint64
+sys_sysinfo(void)
+{
+  struct sysinfo res;
+  uint64 info;
+  if (argaddr(0, &info) < 0)
+    return -1;
+  struct proc *p = myproc();
+
+  res.freemem=getfreemem();
+  res.nproc=getnproc();
+  if (copyout(p->pagetable, info, (char *)&res, sizeof(res)) < 0)
+    return -1;
+  return 0;
 }

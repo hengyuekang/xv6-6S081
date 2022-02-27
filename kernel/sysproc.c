@@ -81,6 +81,38 @@ int
 sys_pgaccess(void)
 {
   // lab pgtbl: your code here.
+  uint64 begin;
+  if(argaddr(0, &begin) < 0)
+    return -1;
+  int num;
+  if(argint(1,&num)<0)
+    return -1;
+  if(num>32)
+  {
+    printf("pgacess:too many pages to be scaned.\n");
+    return -1;
+  }
+  unsigned int res=0;
+  for(int i=0;i<num;i++)
+  {
+    pte_t *pte=walk(myproc()->pagetable,begin+i*PGSIZE,1);
+    if((*pte)& PTE_V)
+    {
+      if((*pte)& PTE_A)
+      {
+        res=(res)|(1<<i);
+        // printf("pos in buf :%d,a accessed pte:%p,and res now is:%p\n",i,*pte,res);
+        (*pte)=(*pte)-PTE_A;
+        // printf("pte clear PTE_A :%p\n",*pte);
+      }
+    }
+  }
+  uint64 dest;
+  if(argaddr(2,&dest)<0)
+    return -1;
+  // int copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
+  // printf("res(copyout to bitmask)=%p\n",res);
+  copyout(myproc()->pagetable,dest,(char*)&res,4);
   return 0;
 }
 #endif

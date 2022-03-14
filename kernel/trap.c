@@ -81,15 +81,19 @@ void usertrap(void)
   // give up the CPU if this is a timer interrupt->
   if (which_dev == 2) // currently the proc is in kernel-mode and
   {
-    p->passedticks++;
-    if ((p->passedticks) >= (p->ticks) && (p->handling != 1)) // p->passedticks starts add just as the proc starts
-    {
-      p->alarmcontext = (struct trapframe *)kalloc();
-      memmove(p->alarmcontext, p->trapframe, PGSIZE);
-      p->passedticks = 0;
-      p->handling = 1;                // prevent re-entrant calls
-      p->trapframe->epc = p->handler; // user space to call handler
-    }
+    // if ((p->ticks) != 0)
+    // {
+      p->passedticks++;
+      if ((p->ticks!=0)&&(p->passedticks) >= (p->ticks) && (p->handling != 1)) // p->passedticks starts add just as the proc starts
+      {
+        p->alarmcontext = (struct trapframe *)kalloc();
+        memmove(p->alarmcontext, p->trapframe, PGSIZE);
+        p->passedticks = 0;
+        p->handling = 1;                // prevent re-entrant calls
+        p->trapframe->epc = p->handler; // user space to call handler
+      }
+    // }
+
     yield();
   }
 

@@ -110,7 +110,7 @@ sys_sigalarm(void) // determined by user
   uint64 fn;
   if (argaddr(1, &fn) < 0)
     return -1;
-  if (interval <= 0 || fn == 0) // there are no NULL for xv6,and occasionally the address of periodic==0,so ignore if passed 0
+  if (interval <= 0) // there are no NULL for xv6,and occasionally the address of periodic==0,so ignore if passed 0
     return 0;
   p->ticks = interval;
   p->handler = fn;

@@ -150,6 +150,7 @@ found:
   p->context.sp = p->kstack + PGSIZE;
   p->passedticks = 0;
   p->handling = 0;
+  p->ticks=0;
   // p->interval=0;
   // p->handler=(void*)0;
   // p->count=0;

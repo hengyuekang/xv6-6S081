@@ -109,5 +109,11 @@ struct proc {
   uint64 handler;//function to handle alarm trap
   int passedticks;//take down how many ticks passed since the last call
   int handling;//to promise call handler once a time
-  struct trapframe alarmcontext;//to save context before handler
+  struct trapframe *alarmcontext;//to save context before handler
+  //trap lab
+  // int interval;
+  // void (*handler)();
+  // int count;
+  // uint64 interrupt_ra;
+  // struct trapframe *saved_trapframe;
 };

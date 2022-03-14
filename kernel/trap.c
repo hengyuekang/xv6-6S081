@@ -11,7 +11,7 @@ uint ticks;
 
 extern char trampoline[], uservec[], userret[];
 
-// in kernelvec.S, calls kerneltrap().
+// in kernelvec->S, calls kerneltrap()->
 void kernelvec();
 
 extern int devintr();
@@ -21,15 +21,15 @@ void trapinit(void)
   initlock(&tickslock, "time");
 }
 
-// set up to take exceptions and traps while in the kernel.
+// set up to take exceptions and traps while in the kernel->
 void trapinithart(void)
 {
   w_stvec((uint64)kernelvec);
 }
 
 //
-// handle an interrupt, exception, or system call from user space.
-// called from trampoline.S
+// handle an interrupt, exception, or system call from user space->
+// called from trampoline->S
 //
 void usertrap(void)
 {
@@ -39,12 +39,12 @@ void usertrap(void)
     panic("usertrap: not from user mode");
 
   // send interrupts and exceptions to kerneltrap(),
-  // since we're now in the kernel.
+  // since we're now in the kernel->
   w_stvec((uint64)kernelvec);
 
   struct proc *p = myproc();
 
-  // save user program counter.
+  // save user program counter->
   p->trapframe->epc = r_sepc();
 
   if (r_scause() == 8)
@@ -55,11 +55,11 @@ void usertrap(void)
       exit(-1);
 
     // sepc points to the ecall instruction,
-    // but we want to return to the next instruction.
+    // but we want to return to the next instruction->
     p->trapframe->epc += 4;
 
     // an interrupt will change sstatus &c registers,
-    // so don't enable until done with those registers.
+    // so don't enable until done with those registers->
     intr_on();
 
     syscall();
@@ -78,50 +78,47 @@ void usertrap(void)
   if (p->killed)
     exit(-1);
 
-  // give up the CPU if this is a timer interrupt.
+  // give up the CPU if this is a timer interrupt->
   if (which_dev == 2) // currently the proc is in kernel-mode and
   {
     p->passedticks++;
     if ((p->passedticks) >= (p->ticks) && (p->handling != 1)) // p->passedticks starts add just as the proc starts
     {
-      p->alarmcontext.epc = p->trapframe->epc;
-      p->alarmcontext.ra = p->trapframe->ra;
-      p->alarmcontext.sp = p->trapframe->sp;
-      p->alarmcontext.gp = p->trapframe->gp;
-      p->alarmcontext.tp = p->trapframe->tp;
-      p->alarmcontext.s0 = p->trapframe->s0;
-      p->alarmcontext.s1 = p->trapframe->s1;
-      p->alarmcontext.s2 = p->trapframe->s2;
-      p->alarmcontext.s3 = p->trapframe->s3;
-      p->alarmcontext.s4 = p->trapframe->s4;
-      p->alarmcontext.s5 = p->trapframe->s5;
-      p->alarmcontext.s6 = p->trapframe->s6;
-      p->alarmcontext.s7 = p->trapframe->s7;
-      p->alarmcontext.s8 = p->trapframe->s8;
-      p->alarmcontext.s9 = p->trapframe->s9;
-      p->alarmcontext.s10 = p->trapframe->s10;
-      p->alarmcontext.s11 = p->trapframe->s11;
-      p->alarmcontext.t0 = p->trapframe->t0;
-      p->alarmcontext.t1 = p->trapframe->t1;
-      p->alarmcontext.t2 = p->trapframe->t2;
-      p->alarmcontext.t3 = p->trapframe->t3;
-      p->alarmcontext.t4 = p->trapframe->t4;
-      p->alarmcontext.t5 = p->trapframe->t5;
-      p->alarmcontext.t6 = p->trapframe->t6;
-      p->alarmcontext.a0 = p->trapframe->a0;
-      p->alarmcontext.a1 = p->trapframe->a1;
-      p->alarmcontext.a2 = p->trapframe->a2;
-      p->alarmcontext.a3 = p->trapframe->a3;
-      p->alarmcontext.a4 = p->trapframe->a4;
-      p->alarmcontext.a5 = p->trapframe->a5;
-      p->alarmcontext.a6 = p->trapframe->a6;
-      p->alarmcontext.a7 = p->trapframe->a7;
+      p->alarmcontext = (struct trapframe *)kalloc();
+      memmove(p->alarmcontext, p->trapframe, PGSIZE);
       p->passedticks = 0;
       p->handling = 1;                // prevent re-entrant calls
-      p->trapframe->epc = p->handler; // back to user space to call handler
+      p->trapframe->epc = p->handler; // user space to call handler
     }
     yield();
   }
+
+  // give up the CPU if this is a timer interrupt.
+  // if (which_dev == 2)
+  // {
+  //   if (p->interval == 0)
+  //   {
+  //     yield();
+  //     usertrapret();
+  //   }
+  //   else
+  //   {
+  //     p->count++;
+  //     if (p->count == p->interval)
+  //     {
+  //       //保存寄存器
+  //       p->saved_trapframe = (struct trapframe *)kalloc();
+  //       memmove(p->saved_trapframe, p->trapframe, PGSIZE);
+
+  //       //保存被中断指令的地址。sigreturn要返回到此处
+  //       p->interrupt_ra = p->trapframe->epc;
+
+  //       p->trapframe->epc = (uint64)p->handler;
+  //       usertrapret();
+  //     }
+  //   }
+  //   yield();
+  // }
 
   usertrapret();
 }
@@ -135,43 +132,43 @@ void usertrapret(void)
 
   // we're about to switch the destination of traps from
   // kerneltrap() to usertrap(), so turn off interrupts until
-  // we're back in user space, where usertrap() is correct.
+  // we're back in user space, where usertrap() is correct->
   intr_off();
 
-  // send syscalls, interrupts, and exceptions to trampoline.S
+  // send syscalls, interrupts, and exceptions to trampoline->S
   w_stvec(TRAMPOLINE + (uservec - trampoline));
 
   // set up trapframe values that uservec will need when
-  // the process next re-enters the kernel.
+  // the process next re-enters the kernel->
   p->trapframe->kernel_satp = r_satp();         // kernel page table
   p->trapframe->kernel_sp = p->kstack + PGSIZE; // process's kernel stack
   p->trapframe->kernel_trap = (uint64)usertrap;
   p->trapframe->kernel_hartid = r_tp(); // hartid for cpuid()
 
-  // set up the registers that trampoline.S's sret will use
-  // to get to user space.
+  // set up the registers that trampoline->S's sret will use
+  // to get to user space->
 
-  // set S Previous Privilege mode to User.
+  // set S Previous Privilege mode to User->
   unsigned long x = r_sstatus();
   x &= ~SSTATUS_SPP; // clear SPP to 0 for user mode
   x |= SSTATUS_SPIE; // enable interrupts in user mode
   w_sstatus(x);
 
-  // set S Exception Program Counter to the saved user pc.
+  // set S Exception Program Counter to the saved user pc->
   w_sepc(p->trapframe->epc);
 
-  // tell trampoline.S the user page table to switch to.
+  // tell trampoline->S the user page table to switch to->
   uint64 satp = MAKE_SATP(p->pagetable);
 
-  // jump to trampoline.S at the top of memory, which
+  // jump to trampoline->S at the top of memory, which
   // switches to the user page table, restores user registers,
-  // and switches to user mode with sret.
+  // and switches to user mode with sret->
   uint64 fn = TRAMPOLINE + (userret - trampoline);
   ((void (*)(uint64, uint64))fn)(TRAPFRAME, satp);
 }
 
 // interrupts and exceptions from kernel code go here via kernelvec,
-// on whatever the current kernel stack is.
+// on whatever the current kernel stack is->
 void kerneltrap()
 {
   int which_dev = 0;
@@ -191,12 +188,12 @@ void kerneltrap()
     panic("kerneltrap");
   }
 
-  // give up the CPU if this is a timer interrupt.
+  // give up the CPU if this is a timer interrupt->
   if (which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
     yield();
 
   // the yield() may have caused some traps to occur,
-  // so restore trap registers for use by kernelvec.S's sepc instruction.
+  // so restore trap registers for use by kernelvec->S's sepc instruction->
   w_sepc(sepc);
   w_sstatus(sstatus);
 }
@@ -210,10 +207,10 @@ void clockintr()
 }
 
 // check if it's an external interrupt or software interrupt,
-// and handle it.
+// and handle it->
 // returns 2 if timer interrupt,
 // 1 if other device,
-// 0 if not recognized.
+// 0 if not recognized->
 int devintr()
 {
   uint64 scause = r_scause();
@@ -221,9 +218,9 @@ int devintr()
   if ((scause & 0x8000000000000000L) &&
       (scause & 0xff) == 9)
   {
-    // this is a supervisor external interrupt, via PLIC.
+    // this is a supervisor external interrupt, via PLIC->
 
-    // irq indicates which device interrupted.
+    // irq indicates which device interrupted->
     int irq = plic_claim();
 
     if (irq == UART0_IRQ)
@@ -241,7 +238,7 @@ int devintr()
 
     // the PLIC allows each device to raise at most one
     // interrupt at a time; tell the PLIC the device is
-    // now allowed to interrupt again.
+    // now allowed to interrupt again->
     if (irq)
       plic_complete(irq);
 
@@ -250,7 +247,7 @@ int devintr()
   else if (scause == 0x8000000000000001L)
   {
     // software interrupt from a machine-mode timer interrupt,
-    // forwarded by timervec in kernelvec.S.
+    // forwarded by timervec in kernelvec->S->
 
     if (cpuid() == 0)
     {
@@ -258,7 +255,7 @@ int devintr()
     }
 
     // acknowledge the software interrupt by clearing
-    // the SSIP bit in sip.
+    // the SSIP bit in sip->
     w_sip(r_sip() & ~2);
 
     return 2;

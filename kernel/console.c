@@ -183,7 +183,7 @@ consoleinit(void)
 {
   initlock(&cons.lock, "cons");
 
-  uartinit();
+  uartinit();//configure uart chip
 
   // connect read and write system calls
   // to consoleread and consolewrite.

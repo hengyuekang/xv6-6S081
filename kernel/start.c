@@ -24,7 +24,7 @@ start()
   unsigned long x = r_mstatus();
   x &= ~MSTATUS_MPP_MASK;
   x |= MSTATUS_MPP_S;
-  w_mstatus(x);
+  w_mstatus(x);//interrupt:supervisor mode
 
   // set M Exception Program Counter to main, for mret.
   // requires gcc -mcmodel=medany

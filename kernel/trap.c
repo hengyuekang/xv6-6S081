@@ -66,13 +66,36 @@ usertrap(void)
 
     syscall();
   } else if((which_dev = devintr()) != 0){
-    // ok
-  } else {
+    // ok(interrupts from external devices)
+  } else if(r_scause()==13||r_scause()==15)
+  {
+    char *mem;
+    pte_t *pte;
+    uint64 curr=r_stval();
+    if((pte = walk(p->pagetable, curr, 0)) == 0)//va->address of PTE
+      panic("ustertrap: pte should exist");
+    uint64 pa=PTE2PA(*pte);
+    uint flags=(PTE_FLAGS(*pte))|PTE_W;
+    if((mem = kalloc()) == 0)
+    {
+      p->killed=1;
+      printf("usertrap:mem kalloc failed\n");
+      goto err;
+    }
+    memmove(mem, (char*)pa, PGSIZE);
+    if(mappages(p->pagetable,curr,PGSIZE,(uint64)mem,flags)!=0)
+    {
+      printf("ustertrap: mappages fails\n");
+      goto err;
+    }
+
+  }
+  else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
   }
-
+err:
   if(p->killed)
     exit(-1);
 

@@ -5,7 +5,7 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
-
+// #include "spinlock.h"
 /*
  * the kernel's page table.
  */
@@ -14,6 +14,15 @@ pagetable_t kernel_pagetable;
 extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern char trampoline[]; // trampoline.S
+
+
+// void decrement_page_ref(uint64 pa)
+// {
+//   int index=(pa-KERNBASE)/4096;
+//   accquire(&page_ref[index].lock);
+//   page_ref[index].num--;
+//   release(&page_ref[index].lock);
+// }
 
 // Make a direct-map page table for the kernel.
 pagetable_t
@@ -178,10 +187,19 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
       panic("uvmunmap: not mapped");
     if(PTE_FLAGS(*pte) == PTE_V)
       panic("uvmunmap: not a leaf");
+    uint64 pa = PTE2PA(*pte);
+    pa=PGROUNDDOWN(pa);
     if(do_free){
-      uint64 pa = PTE2PA(*pte);
       kfree((void*)pa);
     }
+    else
+    {
+      if(get_page_ref((pa))>1)
+      {
+        dec_page_ref((pa));
+      }
+    }
+    
     *pte = 0;
   }
 }
@@ -311,7 +329,8 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
-    *pte=(*pte)&(~PTE_W);
+    *pte=(*pte)&(~PTE_W);//not writable
+    *pte=(*pte)|(PTE_COW);//mark COW page specially
     flags = PTE_FLAGS(*pte);
     // if((mem = kalloc()) == 0)
     //   goto err;
@@ -320,6 +339,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       // kfree(mem);
       goto err;
     }
+    increment_page_ref(pa);
   }
   return 0;
 
@@ -348,6 +368,10 @@ int
 copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
   uint64 n, va0, pa0;
+
+  if(cow_page_fault(pagetable,dstva)==0)
+    handle_cow_fault(pagetable,dstva);
+
 
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);

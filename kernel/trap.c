@@ -28,11 +28,51 @@ trapinithart(void)
 {
   w_stvec((uint64)kernelvec);
 }
+int cow_page_fault(pagetable_t pagetable,uint64 va)
+{
+  if(va>= MAXVA) return 1;
+  pte_t *pte;
+  if((pte = walk(pagetable, va, 0)) == 0) return 1;
+  if((*pte & PTE_V) == 0) return 1;
+  if((*pte & PTE_COW)) return 0;
+  return 1;
+}
 
+int handle_cow_fault(pagetable_t pagetable,uint64 va)
+{
+  va=PGROUNDDOWN(va);
+  pte_t *pte = walk(pagetable, va, 0);
+  uint64 old_pa=PTE2PA(*pte);
+  if(get_page_ref(old_pa)==1)
+  {
+    *pte |= PTE_W;
+    *pte &= (~PTE_COW);
+  }
+  else
+  {
+    void* new_pa=kalloc();//allocate a writable page
+    if(new_pa==0)
+    {
+      return 1;
+    }
+    else
+    {
+      memmove(new_pa,(void*)old_pa,PGSIZE);
+      uint flags = PTE_FLAGS(*pte);
+      uint64 new_pte=PA2PTE(new_pa);
+      *pte = new_pte | flags;//update the PTE
+      *pte |= PTE_W;
+      *pte &= (~PTE_COW);
+      kfree((void*)old_pa);//in case that ref==1,promise free all memory
+    }
+  }
+  return 0;
+}
 //
 // handle an interrupt, exception, or system call from user space.
 // called from trampoline.S
 //
+
 void
 usertrap(void)
 {
@@ -69,23 +109,15 @@ usertrap(void)
     // ok(interrupts from external devices)
   } else if(r_scause()==13||r_scause()==15)
   {
-    char *mem;
-    pte_t *pte;
-    uint64 curr=r_stval();
-    if((pte = walk(p->pagetable, curr, 0)) == 0)//va->address of PTE
-      panic("ustertrap: pte should exist");
-    uint64 pa=PTE2PA(*pte);
-    uint flags=(PTE_FLAGS(*pte))|PTE_W;
-    if((mem = kalloc()) == 0)
+    uint64 va=r_stval();
+    if(cow_page_fault(p->pagetable,va)!=0)
     {
-      p->killed=1;
-      printf("usertrap:mem kalloc failed\n");
+      p->killed=1;//only handle cow page
       goto err;
     }
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(p->pagetable,curr,PGSIZE,(uint64)mem,flags)!=0)
+    if(handle_cow_fault(p->pagetable,va)!=0)
     {
-      printf("ustertrap: mappages fails\n");
+      p->killed=1;//only handle cow page
       goto err;
     }
 

@@ -21,6 +21,7 @@ initlock(struct spinlock *lk, char *name)
 void
 acquire(struct spinlock *lk)
 {
+  // todo:why? and pop_off in release?
   push_off(); // disable interrupts to avoid deadlock.
   if(holding(lk))
     panic("acquire");

@@ -30,7 +30,17 @@ barrier()
   // Block until all threads have called barrier() and
   // then increment bstate.round.
   //
-  
+  pthread_mutex_lock(&bstate.barrier_mutex);
+  bstate.nthread++;
+  if(bstate.nthread==nthread){
+    bstate.nthread=0;
+    bstate.round++;
+    pthread_cond_broadcast(&bstate.barrier_cond);
+  }
+  else{
+    pthread_cond_wait(&bstate.barrier_cond, &bstate.barrier_mutex);//mutex:contronl whether the thread is sleeping
+  }
+  pthread_mutex_unlock(&bstate.barrier_mutex);
 }
 
 static void *
@@ -72,7 +82,7 @@ main(int argc, char *argv[])
     assert(pthread_create(&tha[i], NULL, thread, (void *) i) == 0);
   }
   for(i = 0; i < nthread; i++) {
-    assert(pthread_join(tha[i], &value) == 0);
+    assert(pthread_join(tha[i], &value) == 0);//wait for terminate
   }
   printf("OK; passed\n");
 }

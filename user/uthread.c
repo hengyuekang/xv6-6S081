@@ -95,7 +95,7 @@ thread_create(void (*func)())
   t->state = RUNNABLE;
   // YOUR CODE HERE
   t->context.ra=(uint64)func;//manually set as the process stack,switch return to ra
-  t->context.sp=(uint64)(&t->stack[STACK_SIZE]);//set as the stack top
+  t->context.sp=(uint64)(&t->stack[STACK_SIZE]);//set as the stack top,from high to low
 }
 
 void 

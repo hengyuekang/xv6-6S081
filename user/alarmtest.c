@@ -34,7 +34,7 @@ periodic()
 {
   count = count + 1;
   printf("alarm!\n");
-  sigreturn();
+  sigreturn();//call this function from kernel and it could not return as a normal user function
 }
 
 // tests whether the kernel calls
